@@ -14,7 +14,7 @@ We've spent years optimizing the web for engagement, and somewhere along the way
 
 So here's a cat.
 
-![A very good cat](./cat.jpg)
+![A very good cat](./cat.jpeg)
 
 His name is unknown. His agenda is unclear. His vibe is immaculate.
 

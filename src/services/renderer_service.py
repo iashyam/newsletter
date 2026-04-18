@@ -1,15 +1,16 @@
-import os
 import re
-import boto3
 from datetime import datetime
 from pathlib import Path
+
 import markdown
 from premailer import transform
-from dotenv import load_dotenv
 
-load_dotenv()
+from src.core.config import settings
+from src.core.exceptions import MarkdownFileError, ImageNotFoundError
+from src.modules.newsletter.schema import RenderedNewsletter
+from src.services import s3_service
 
-EMAIL_TEMPLATE = """
+_EMAIL_TEMPLATE = """
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -17,7 +18,6 @@ EMAIL_TEMPLATE = """
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>{title}</title>
 <style>
-  /* Reset */
   body, table, td, p, a, li, blockquote {{
     -webkit-text-size-adjust: 100%;
     -ms-text-size-adjust: 100%;
@@ -29,16 +29,12 @@ EMAIL_TEMPLATE = """
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
     color: #1a1a1a;
   }}
-
-  /* Wrapper */
   .wrapper {{
     width: 100%;
     background-color: #f4f4f5;
     padding: 40px 16px;
     box-sizing: border-box;
   }}
-
-  /* Card */
   .card {{
     max-width: 600px;
     margin: 0 auto;
@@ -47,8 +43,6 @@ EMAIL_TEMPLATE = """
     overflow: hidden;
     box-shadow: 0 2px 8px rgba(0,0,0,0.08);
   }}
-
-  /* Header */
   .header {{
     background-color: #18181b;
     padding: 32px 40px;
@@ -66,13 +60,9 @@ EMAIL_TEMPLATE = """
     font-size: 13px;
     color: #a1a1aa;
   }}
-
-  /* Body */
   .body {{
     padding: 40px;
   }}
-
-  /* Typography */
   .body h1 {{
     font-size: 26px;
     font-weight: 700;
@@ -154,8 +144,6 @@ EMAIL_TEMPLATE = """
     border-top: 1px solid #e4e4e7;
     margin: 36px 0;
   }}
-
-  /* Images */
   .body img {{
     max-width: 100%;
     height: auto;
@@ -163,15 +151,11 @@ EMAIL_TEMPLATE = """
     display: block;
     margin: 24px auto;
   }}
-
-  /* Divider */
   .divider {{
     height: 1px;
     background-color: #e4e4e7;
     margin: 0 40px;
   }}
-
-  /* Footer */
   .footer {{
     padding: 28px 40px;
     text-align: center;
@@ -185,16 +169,30 @@ EMAIL_TEMPLATE = """
     color: #7c3aed;
     text-decoration: none;
   }}
-
-  /* Mobile */
   @media only screen and (max-width: 600px) {{
-    .wrapper {{ padding: 16px 8px; }}
-    .header {{ padding: 24px 20px; }}
-    .body {{ padding: 28px 20px; }}
-    .body h1 {{ font-size: 22px; }}
-    .body h2 {{ font-size: 18px; }}
-    .footer {{ padding: 20px; }}
-    .divider {{ margin: 0 20px; }}
+    /* Full-width, edge-to-edge on mobile */
+    .wrapper {{ padding: 0; }}
+    .card {{ border-radius: 0; box-shadow: none; }}
+
+    /* Tighter but still breathable padding */
+    .header {{ padding: 20px 16px; }}
+    .body {{ padding: 24px 16px; }}
+    .footer {{ padding: 16px; }}
+    .divider {{ margin: 0; }}
+
+    /* Slightly smaller headings */
+    .body h1 {{ font-size: 21px; }}
+    .body h2 {{ font-size: 17px; margin-top: 24px; }}
+    .body h3 {{ font-size: 15px; margin-top: 20px; }}
+
+    /* Tighter paragraph and list spacing to reduce scroll */
+    .body p {{ margin-bottom: 14px; }}
+    .body ul, .body ol {{ margin-bottom: 14px; }}
+    .body li {{ margin-bottom: 4px; }}
+    .body hr {{ margin: 24px 0; }}
+
+    /* Images full-width, no side margin */
+    .body img {{ margin: 16px 0; border-radius: 6px; width: 100%; }}
   }}
 </style>
 </head>
@@ -220,105 +218,58 @@ EMAIL_TEMPLATE = """
 """
 
 
-def upload_image_to_s3(local_path: str, newsletter_date: str) -> str:
-    s3 = boto3.client(
-        "s3",
-        region_name=os.environ.get("AWS_REGION", "us-east-1"),
-        aws_access_key_id=os.environ["AWS_ACCESS_KEY_ID"],
-        aws_secret_access_key=os.environ["AWS_SECRET_ACCESS_KEY"],
-    )
-    bucket = os.environ["S3_BUCKET"]
-    base_url = os.environ["S3_PUBLIC_BASE_URL"].rstrip("/")
-
-    filename = Path(local_path).name
-    key = f"newsletters/{newsletter_date}/{filename}"
-
-    content_type = "image/jpeg"
-    ext = Path(local_path).suffix.lower()
-    if ext == ".png":
-        content_type = "image/png"
-    elif ext in (".gif",):
-        content_type = "image/gif"
-    elif ext in (".webp",):
-        content_type = "image/webp"
-
-    s3.upload_file(
-        local_path,
-        bucket,
-        key,
-        ExtraArgs={"ContentType": content_type},
-    )
-    return f"{base_url}/{key}"
-
-
-def resolve_images(md_content: str, md_file_path: str, newsletter_date: str):
-    """
-    Find all local image references in markdown, upload to S3, replace with URLs.
-    Returns (updated_md_content, list of warnings).
-    """
-    md_dir = Path(md_file_path).parent
+def _resolve_images(md_content: str, md_dir: Path, newsletter_date: str) -> tuple[str, list[str]]:
+    """Replace local image paths with S3 URLs. Returns (updated_content, warnings)."""
     warnings = []
 
-    def replace_image(match):
-        alt = match.group(1)
-        src = match.group(2)
-
-        # Skip already-hosted images
-        if src.startswith("http://") or src.startswith("https://"):
+    def replace(match):
+        alt, src = match.group(1), match.group(2)
+        if src.startswith(("http://", "https://")):
             return match.group(0)
 
         local_path = md_dir / src
         if not local_path.exists():
-            warnings.append(f"Image not found, skipping: {src}")
+            warnings.append(ImageNotFoundError(src).message)
             return match.group(0)
 
         try:
-            url = upload_image_to_s3(str(local_path), newsletter_date)
+            url = s3_service.upload_image(str(local_path), newsletter_date)
             return f"![{alt}]({url})"
         except Exception as e:
-            warnings.append(f"Failed to upload {src}: {e}")
+            warnings.append(str(e))
             return match.group(0)
 
-    updated = re.sub(r"!\[([^\]]*)\]\(([^)]+)\)", replace_image, md_content)
+    updated = re.sub(r"!\[([^\]]*)\]\(([^)]+)\)", replace, md_content)
     return updated, warnings
 
 
-def render_markdown_to_html(md_file_path: str) -> tuple[str, str, list[str]]:
-    """
-    Renders a markdown file to a full HTML email.
-    Returns (html, subject_line, warnings).
-    """
-    with open(md_file_path, "r", encoding="utf-8") as f:
-        md_content = f.read()
+def render(md_file_path: str) -> RenderedNewsletter:
+    """Render a markdown file to a full HTML email."""
+    try:
+        with open(md_file_path, "r", encoding="utf-8") as f:
+            md_content = f.read()
+    except OSError as e:
+        raise MarkdownFileError(md_file_path, str(e))
 
     newsletter_date = datetime.now().strftime("%Y-%m-%d")
+    md_content, warnings = _resolve_images(md_content, Path(md_file_path).parent, newsletter_date)
 
-    # Upload local images to S3
-    md_content, warnings = resolve_images(md_content, md_file_path, newsletter_date)
-
-    # Extract subject from first H1
     subject = "Newsletter"
     h1_match = re.search(r"^#\s+(.+)$", md_content, re.MULTILINE)
     if h1_match:
         subject = h1_match.group(1).strip()
 
-    # Convert markdown to HTML
-    html_content = markdown.markdown(
-        md_content,
-        extensions=["extra", "codehilite", "nl2br"],
-    )
+    html_content = markdown.markdown(md_content, extensions=["extra", "codehilite", "nl2br"])
 
-    newsletter_name = os.environ.get("FROM_NAME", "Newsletter")
-    date_display = datetime.now().strftime("%B %d, %Y")
-
-    full_html = EMAIL_TEMPLATE.format(
+    full_html = _EMAIL_TEMPLATE.format(
         title=subject,
-        newsletter_name=newsletter_name,
-        date=date_display,
+        newsletter_name=settings.from_name,
+        date=datetime.now().strftime("%B %d, %Y"),
         content=html_content,
     )
 
-    # Inline CSS for better email client compatibility
-    full_html = transform(full_html)
-
-    return full_html, subject, warnings
+    return RenderedNewsletter(
+        html=transform(full_html),
+        subject=subject,
+        warnings=warnings,
+    )

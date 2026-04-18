@@ -1,7 +1,24 @@
-import click
-from dotenv import load_dotenv
+#!.venv/bin/python
 
-load_dotenv()
+
+import sys
+import functools
+
+import click
+
+from src.core.exceptions import AppException
+
+
+def handle_errors(f):
+    """Decorator that catches AppException and exits cleanly instead of showing a traceback."""
+    @functools.wraps(f)
+    def wrapper(*args, **kwargs):
+        try:
+            return f(*args, **kwargs)
+        except AppException as e:
+            click.secho(f"Error: {e.message}", fg="red", err=True)
+            sys.exit(1)
+    return wrapper
 
 
 @click.group()
@@ -16,41 +33,41 @@ def cli():
 
 @cli.command()
 @click.argument("markdown_file", type=click.Path(exists=True))
-@click.option("--dry-run", is_flag=True, help="Render HTML and show a preview without sending.")
+@click.option("--dry-run", is_flag=True, help="Render and save a preview HTML without sending.")
+@handle_errors
 def send(markdown_file, dry_run):
-    """Render MARKDOWN_FILE and send it to all active subscribers."""
-    from renderer import render_markdown_to_html
-    from db import get_active_subscribers
-    from sender import send_newsletter
+    """Render MARKDOWN_FILE and send to all active subscribers."""
+    from src.modules.newsletter import service as newsletter_service
+    from src.modules.subscribers import service as subscriber_service
 
     click.echo(f"Rendering {markdown_file}...")
-    html, subject, warnings = render_markdown_to_html(markdown_file)
+    newsletter = newsletter_service.render(markdown_file)
 
-    for w in warnings:
-        click.secho(f"  ⚠  {w}", fg="yellow")
+    for warning in newsletter.warnings:
+        click.secho(f"  ⚠  {warning}", fg="yellow")
 
-    click.echo(f"  Subject : {subject}")
+    click.echo(f"  Subject : {newsletter.subject}")
 
     if dry_run:
         preview_path = markdown_file.replace(".md", "_preview.html")
         with open(preview_path, "w", encoding="utf-8") as f:
-            f.write(html)
+            f.write(newsletter.html)
         click.secho(f"Dry run — preview saved to {preview_path}", fg="cyan")
         return
 
-    subscribers = get_active_subscribers()
+    subscribers = subscriber_service.get_active()
     if not subscribers:
         click.secho("No active subscribers found.", fg="yellow")
         return
 
     click.echo(f"Sending to {len(subscribers)} subscriber(s)...")
-    result = send_newsletter(html, subject, subscribers)
+    result = newsletter_service.send(newsletter, subscribers)
 
-    click.secho(f"  Sent successfully : {result['success']}", fg="green")
-    if result["failed"]:
-        click.secho(f"  Failed            : {len(result['failed'])}", fg="red")
-        for f in result["failed"]:
-            click.secho(f"    {f['email']} — {f['error']}", fg="red")
+    click.secho(f"  Sent     : {result.success_count}", fg="green")
+    if result.failed:
+        click.secho(f"  Failed   : {len(result.failed)}", fg="red")
+        for failure in result.failed:
+            click.secho(f"    {failure.email} — {failure.error}", fg="red")
 
 
 # ---------------------------------------------------------------------------
@@ -64,11 +81,12 @@ def subscribers():
 
 
 @subscribers.command("list")
+@handle_errors
 def subscribers_list():
     """List all subscribers."""
-    from db import list_subscribers
+    from src.modules.subscribers import service as subscriber_service
 
-    subs = list_subscribers()
+    subs = subscriber_service.list_all()
     if not subs:
         click.echo("No subscribers yet.")
         return
@@ -76,49 +94,47 @@ def subscribers_list():
     click.echo(f"\n{'EMAIL':<35} {'NAME':<25} {'ACTIVE'}")
     click.echo("-" * 68)
     for s in subs:
-        active = click.style("yes", fg="green") if s.get("active") else click.style("no", fg="red")
-        click.echo(f"{s['email']:<35} {s.get('name', ''):<25} {active}")
+        active = click.style("yes", fg="green") if s.active else click.style("no", fg="red")
+        click.echo(f"{s.email:<35} {s.name:<25} {active}")
     click.echo(f"\nTotal: {len(subs)}")
 
 
 @subscribers.command("add")
 @click.argument("email")
 @click.option("--name", default="", help="Subscriber's name.")
+@handle_errors
 def subscribers_add(email, name):
     """Add a subscriber by EMAIL."""
-    from db import add_subscriber
+    from src.modules.subscribers import service as subscriber_service
+    from src.modules.subscribers.schema import SubscriberCreate
 
-    ok, msg = add_subscriber(email, name)
-    if ok:
-        click.secho(f"Added {email}", fg="green")
-    else:
-        click.secho(f"Skipped {email} — {msg}", fg="yellow")
+    subscriber_service.add(SubscriberCreate(email=email, name=name))
+    click.secho(f"Added {email}", fg="green")
 
 
 @subscribers.command("remove")
 @click.argument("email")
+@handle_errors
 def subscribers_remove(email):
     """Remove a subscriber by EMAIL."""
-    from db import remove_subscriber
+    from src.modules.subscribers import service as subscriber_service
 
     if click.confirm(f"Remove {email}?"):
-        removed = remove_subscriber(email)
-        if removed:
-            click.secho(f"Removed {email}", fg="green")
-        else:
-            click.secho(f"Not found: {email}", fg="yellow")
+        subscriber_service.remove(email)
+        click.secho(f"Removed {email}", fg="green")
 
 
 @subscribers.command("import")
 @click.argument("csv_file", type=click.Path(exists=True))
+@handle_errors
 def subscribers_import(csv_file):
     """Bulk import subscribers from a CSV_FILE (Google Sheets export)."""
-    from db import import_from_csv
+    from src.modules.subscribers import service as subscriber_service
 
     click.echo(f"Importing from {csv_file}...")
-    added, skipped = import_from_csv(csv_file)
-    click.secho(f"  Added   : {added}", fg="green")
-    click.secho(f"  Skipped : {skipped}", fg="yellow")
+    result = subscriber_service.import_from_csv(csv_file)
+    click.secho(f"  Added   : {result.added}", fg="green")
+    click.secho(f"  Skipped : {result.skipped}", fg="yellow")
 
 
 if __name__ == "__main__":
