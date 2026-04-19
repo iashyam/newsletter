@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Subscribe</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: Georgia, "Times New Roman", serif;
+      background: #fff;
+      color: #1a1a1a;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+    }
+
+    .card {
+      width: 100%;
+      max-width: 480px;
+    }
+
+    h1 {
+      font-size: 1.75rem;
+      font-weight: normal;
+      margin-bottom: 8px;
+      letter-spacing: -0.01em;
+    }
+
+    .tagline {
+      color: #555;
+      font-size: 1rem;
+      margin-bottom: 32px;
+      line-height: 1.5;
+    }
+
+    .form-group {
+      margin-bottom: 16px;
+    }
+
+    label {
+      display: block;
+      font-size: 0.85rem;
+      color: #555;
+      margin-bottom: 6px;
+      letter-spacing: 0.03em;
+      text-transform: uppercase;
+    }
+
+    input {
+      width: 100%;
+      padding: 10px 14px;
+      font-family: inherit;
+      font-size: 1rem;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+      outline: none;
+      transition: border-color 0.15s;
+    }
+
+    input:focus {
+      border-color: #1a1a1a;
+    }
+
+    button {
+      margin-top: 8px;
+      width: 100%;
+      padding: 12px;
+      font-family: inherit;
+      font-size: 1rem;
+      background: #1a1a1a;
+      color: #fff;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      letter-spacing: 0.02em;
+      transition: opacity 0.15s;
+    }
+
+    button:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+
+    .message {
+      margin-top: 20px;
+      padding: 12px 16px;
+      border-radius: 4px;
+      font-size: 0.95rem;
+      display: none;
+    }
+
+    .message.success {
+      background: #f0faf0;
+      color: #2a7a2a;
+      border: 1px solid #b3ddb3;
+    }
+
+    .message.error {
+      background: #fff5f5;
+      color: #c0392b;
+      border: 1px solid #f5c6c2;
+    }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <h1>Subscribe</h1>
+    <p class="tagline">Get my newsletter in your inbox.</p>
+
+    <form id="form">
+      <div class="form-group">
+        <label for="name">Name</label>
+        <input type="text" id="name" name="name" placeholder="Your name" required autocomplete="name" />
+      </div>
+      <div class="form-group">
+        <label for="email">Email</label>
+        <input type="email" id="email" name="email" placeholder="you@example.com" required autocomplete="email" />
+      </div>
+      <button type="submit" id="btn">Subscribe</button>
+    </form>
+
+    <div class="message" id="msg"></div>
+  </div>
+
+  <script>
+    const form = document.getElementById("form");
+    const btn  = document.getElementById("btn");
+    const msg  = document.getElementById("msg");
+
+    function showMessage(text, type) {
+      msg.textContent = text;
+      msg.className = "message " + type;
+      msg.style.display = "block";
+    }
+
+    form.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      btn.disabled = true;
+      btn.textContent = "Subscribing…";
+      msg.style.display = "none";
+
+      const email = document.getElementById("email").value.trim();
+      const name  = document.getElementById("name").value.trim();
+
+      try {
+        const res = await fetch("/subscribe", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ email, name }),
+        });
+
+        const data = await res.json();
+
+        if (res.ok) {
+          showMessage("You're subscribed! Check your inbox for a welcome email.", "success");
+          form.reset();
+        } else if (res.status === 409) {
+          showMessage("That email is already subscribed.", "error");
+        } else {
+          showMessage(data.error || "Something went wrong. Please try again.", "error");
+        }
+      } catch {
+        showMessage("Network error. Please try again.", "error");
+      } finally {
+        btn.disabled = false;
+        btn.textContent = "Subscribe";
+      }
+    });
+  </script>
+</body>
+</html>

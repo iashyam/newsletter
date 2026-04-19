@@ -25,43 +25,38 @@ _EMAIL_TEMPLATE = """
   body {{
     margin: 0;
     padding: 0;
-    background-color: #f4f4f5;
-    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+    background-color: #ffffff;
+    font-family: Georgia, 'Times New Roman', Times, serif;
     color: #1a1a1a;
   }}
-  .wrapper {{
-    width: 100%;
-    background-color: #f4f4f5;
-    padding: 40px 16px;
-    box-sizing: border-box;
-  }}
-  .card {{
+  .container {{
     max-width: 600px;
     margin: 0 auto;
-    background-color: #ffffff;
-    border-radius: 12px;
-    overflow: hidden;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.08);
   }}
   .header {{
     background-color: #18181b;
-    padding: 32px 40px;
+    background: linear-gradient(135deg, #18181b 0%, #3f3f46 100%);
+    padding: 40px 25px 36px;
     text-align: center;
+    border-radius: 0 0 32px 32px;
   }}
   .header h1 {{
     margin: 0;
-    font-size: 22px;
+    font-family: Georgia, 'Times New Roman', Times, serif;
+    font-size: 26px;
     font-weight: 700;
     color: #ffffff;
-    letter-spacing: -0.3px;
+    letter-spacing: 0.5px;
   }}
   .header p {{
-    margin: 6px 0 0;
-    font-size: 13px;
+    margin: 8px 0 0;
+    font-size: 12px;
     color: #a1a1aa;
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
   }}
   .body {{
-    padding: 40px;
+    padding: 25px;
   }}
   .body h1 {{
     font-size: 26px;
@@ -154,10 +149,10 @@ _EMAIL_TEMPLATE = """
   .divider {{
     height: 1px;
     background-color: #e4e4e7;
-    margin: 0 40px;
+    margin: 0 25px;
   }}
   .footer {{
-    padding: 28px 40px;
+    padding: 16px 10px;
     text-align: center;
   }}
   .footer p {{
@@ -170,47 +165,24 @@ _EMAIL_TEMPLATE = """
     text-decoration: none;
   }}
   @media only screen and (max-width: 600px) {{
-    /* Full-width, edge-to-edge on mobile */
-    .wrapper {{ padding: 0; }}
-    .card {{ border-radius: 0; box-shadow: none; }}
-
-    /* Tighter but still breathable padding */
-    .header {{ padding: 20px 16px; }}
-    .body {{ padding: 24px 16px; }}
-    .footer {{ padding: 16px; }}
+    .body img {{ width: 100%; margin: 12px 0; }}
     .divider {{ margin: 0; }}
-
-    /* Slightly smaller headings */
-    .body h1 {{ font-size: 21px; }}
-    .body h2 {{ font-size: 17px; margin-top: 24px; }}
-    .body h3 {{ font-size: 15px; margin-top: 20px; }}
-
-    /* Tighter paragraph and list spacing to reduce scroll */
-    .body p {{ margin-bottom: 14px; }}
-    .body ul, .body ol {{ margin-bottom: 14px; }}
-    .body li {{ margin-bottom: 4px; }}
-    .body hr {{ margin: 24px 0; }}
-
-    /* Images full-width, no side margin */
-    .body img {{ margin: 16px 0; border-radius: 6px; width: 100%; }}
   }}
 </style>
 </head>
 <body>
-<div class="wrapper">
-  <div class="card">
-    <div class="header">
-      <h1>{newsletter_name}</h1>
-      <p>{date}</p>
-    </div>
-    <div class="body">
-      {content}
-    </div>
-    <div class="divider"></div>
-    <div class="footer">
-      <p>You're receiving this because you subscribed to {newsletter_name}.</p>
-      <p><a href="{{unsubscribe_url}}">Unsubscribe</a></p>
-    </div>
+<div class="container">
+  <div class="header">
+    <h1>{newsletter_name}</h1>
+    <p>{date}</p>
+  </div>
+  <div class="body">
+    {content}
+  </div>
+  <div class="divider"></div>
+  <div class="footer">
+    <p>You're receiving this because you subscribed to {newsletter_name}.</p>
+    <p><a href="{{unsubscribe_url}}">Unsubscribe</a></p>
   </div>
 </div>
 </body>
