@@ -2,8 +2,9 @@ FROM python:3.12-slim
 
 WORKDIR /app
 
-COPY requirements.txt web/requirements.txt ./
-RUN pip install --no-cache-dir -r requirements.txt -r web/requirements.txt
+COPY requirements.txt ./
+COPY web/requirements.txt ./web_requirements.txt
+RUN pip install --no-cache-dir -r requirements.txt -r web_requirements.txt
 
 COPY . .
 
