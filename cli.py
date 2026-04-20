@@ -75,12 +75,12 @@ def send(markdown_file, dry_run):
 # ---------------------------------------------------------------------------
 
 @cli.group()
-def subscribers():
+def subs():
     """Manage newsletter subscribers."""
     pass
 
 
-@subscribers.command("list")
+@subs.command("list")
 @handle_errors
 def subscribers_list():
     """List all subscribers."""
@@ -99,7 +99,7 @@ def subscribers_list():
     click.echo(f"\nTotal: {len(subs)}")
 
 
-@subscribers.command("add")
+@subs.command("add")
 @click.argument("email")
 @click.option("--name", default="", help="Subscriber's name.")
 @handle_errors
@@ -112,7 +112,7 @@ def subscribers_add(email, name):
     click.secho(f"Added {email}", fg="green")
 
 
-@subscribers.command("remove")
+@subs.command("remove")
 @click.argument("email")
 @handle_errors
 def subscribers_remove(email):
@@ -124,7 +124,7 @@ def subscribers_remove(email):
         click.secho(f"Removed {email}", fg="green")
 
 
-@subscribers.command("import")
+@subs.command("import")
 @click.argument("csv_file", type=click.Path(exists=True))
 @handle_errors
 def subscribers_import(csv_file):
