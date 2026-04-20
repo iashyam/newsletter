@@ -27,6 +27,19 @@ cp .env.example .env
 | `S3_BUCKET` | S3 bucket name |
 | `S3_PUBLIC_BASE_URL` | Public base URL for the bucket |
 
+### Docker deployment
+
+The project includes a `Dockerfile` and `docker-compose.yml` for easy deployment. Use the provided `Makefile` to manage the container:
+
+```bash
+make build   # Build the image
+make up      # Start the container in background
+make logs    # Tail the logs
+make down    # Stop the container
+```
+
+The web interface is available at `http://localhost:8000`.
+
 ## Usage
 
 ### Send a newsletter

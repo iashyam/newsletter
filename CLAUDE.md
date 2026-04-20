@@ -4,15 +4,20 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What This Is
 
-CLI tool: write newsletters in Markdown, send to subscribers via Resend. Images auto-uploaded to S3. Subscribers stored in MongoDB.
+CLI tool and Web service: write newsletters in Markdown, send to subscribers via Resend. Images auto-uploaded to S3. Subscribers stored in MongoDB.
 
 ## Setup
 
 ```bash
+# Local development
 python -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
 cp .env.example .env  # fill in credentials
+
+# Docker deployment
+make build
+make up
 ```
 
 ## Commands

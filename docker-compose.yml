@@ -1,6 +1,10 @@
+version: '3.8'
+
 services:
   web:
     build: .
+    image: newsletter-web:latest
+    container_name: newsletter-web
     restart: unless-stopped
     ports:
       - "127.0.0.1:8000:8000"

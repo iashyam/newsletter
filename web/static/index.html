@@ -5,12 +5,18 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Subscribe</title>
   <style>
+    :root {
+      --parchment: #fdfaf3;
+      --text-main: #1a1a1a;
+      --border: #ccc;
+    }
+
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
     body {
       font-family: Georgia, "Times New Roman", serif;
-      background: #fff;
-      color: #1a1a1a;
+      background: var(--parchment);
+      color: var(--text-main);
       min-height: 100vh;
       display: flex;
       align-items: center;
@@ -55,14 +61,16 @@
       padding: 10px 14px;
       font-family: inherit;
       font-size: 1rem;
-      border: 1px solid #ccc;
+      border: 1px solid var(--border);
       border-radius: 4px;
       outline: none;
       transition: border-color 0.15s;
+      background: rgba(255,255,255,0.5);
     }
 
     input:focus {
-      border-color: #1a1a1a;
+      border-color: var(--text-main);
+      background: #fff;
     }
 
     button {
@@ -71,7 +79,7 @@
       padding: 12px;
       font-family: inherit;
       font-size: 1rem;
-      background: #1a1a1a;
+      background: var(--text-main);
       color: #fff;
       border: none;
       border-radius: 4px;
