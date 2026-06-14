@@ -34,8 +34,8 @@ _EMAIL_TEMPLATE = """
     margin: 0 auto;
   }}
   .header {{
-    background-color: #18181b;
-    background: linear-gradient(135deg, #18181b 0%, #3f3f46 100%);
+    background-color: #4f46e5;
+    background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 50%, #db2777 100%);
     padding: 40px 25px 36px;
     text-align: center;
     border-radius: 0 0 32px 32px;
@@ -240,8 +240,15 @@ def render(md_file_path: str) -> RenderedNewsletter:
         content=html_content,
     )
 
+    inlined = transform(full_html)
+    inlined = inlined.replace(
+        "</head>",
+        '<script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml.js"></script></head>',
+        1,
+    )
+
     return RenderedNewsletter(
-        html=transform(full_html),
+        html=inlined,
         subject=subject,
         warnings=warnings,
     )

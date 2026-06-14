@@ -1,3 +1,5 @@
+import time
+
 from src.core.config import settings
 from src.core.exceptions import EmailSendError
 from src.modules.newsletter.schema import RenderedNewsletter, SendResult, FailedDelivery
@@ -9,20 +11,28 @@ def render(md_file_path: str) -> RenderedNewsletter:
     return renderer_service.render(md_file_path)
 
 
-def send(newsletter: RenderedNewsletter, subscribers: list[Subscriber]) -> SendResult:
+def send(newsletter: RenderedNewsletter, subscribers: list[Subscriber], sleep_between: float = 0.5) -> SendResult:
     success_count = 0
     failed = []
 
-    for sub in subscribers:
+    for i, sub in enumerate(subscribers):
         # Personalise unsubscribe link per recipient
         personalized_html = newsletter.html.replace(
             "{unsubscribe_url}",
             f"mailto:{settings.from_email}?subject=Unsubscribe&body=Please%20unsubscribe%20{sub.email}",
         )
+
+        if "[[name]]" in personalized_html:
+            name = sub.name if sub.name else 'there'
+            personalized_html = personalized_html.replace("[[name]]", name)
+
         try:
             email_service.send_email(to=sub.email, subject=newsletter.subject, html=personalized_html)
             success_count += 1
         except EmailSendError as e:
             failed.append(FailedDelivery(email=sub.email, error=e.message))
+
+        if sleep_between > 0 and i < len(subscribers) - 1:
+            time.sleep(sleep_between)
 
     return SendResult(success_count=success_count, failed=failed)

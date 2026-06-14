@@ -12,12 +12,15 @@ _WELCOME_TEMPLATE = Path(__file__).parent.parent / "templates" / "welcome.md"
 def send_email(to: str, subject: str, html: str) -> None:
     """Low-level email sender. Raises EmailSendError on failure."""
     try:
-        resend.Emails.send({
+        params = {
             "from": f"{settings.from_name} <{settings.from_email}>",
             "to": [to],
             "subject": subject,
             "html": html,
-        })
+        }
+        if settings.reply_email:
+            params["reply_to"] = settings.reply_email
+        resend.Emails.send(params)
     except Exception as e:
         raise EmailSendError(to, str(e))
 

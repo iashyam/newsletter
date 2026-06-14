@@ -6,6 +6,7 @@ class Settings(BaseSettings):
     resend_api_key: str
     from_email: str
     from_name: str = "Newsletter"
+    reply_email: str = ""
 
     # MongoDB
     mongodb_uri: str

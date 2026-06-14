@@ -43,8 +43,8 @@ def remove(email: str) -> None:
 
 
 def import_from_csv(filepath: str) -> ImportResult:
-    _EMAIL_KEYS = ("email", "Email", "Email Address", "email_address")
-    _NAME_KEYS = ("name", "Name", "Full Name", "full_name")
+    _EMAIL_KEYS = ("email", "Email", "Email Address", "email_address", "Your Email Address")
+    _NAME_KEYS = ("name", "Name", "Full Name", "full_name", "Your Full Name")
 
     try:
         file = open(filepath, newline="", encoding="utf-8")
